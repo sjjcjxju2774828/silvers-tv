@@ -6,8 +6,20 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
+
+      - name: Free disk space and add swap
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost
+          sudo swapoff -a || true
+          sudo fallocate -l 10G /swapfile
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
+          free -h
+          df -h /
 
       - uses: actions/setup-java@v4
         with:
@@ -20,7 +32,7 @@ jobs:
         run: touch local.properties
 
       - name: Build APK
-        run: ./gradlew :androidApp:assembleFullDebug -Pnuvio.android.distribution=full -Pnuvio.ios.distribution=appstore --stacktrace
+        run: ./gradlew :androidApp:assembleFullDebug -Pnuvio.android.distribution=full -Pnuvio.ios.distribution=appstore --no-daemon --max-workers=2 --stacktrace "-Dorg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8" -Pkotlin.daemon.jvmargs=-Xmx2g
 
       - uses: actions/upload-artifact@v4
         with:
