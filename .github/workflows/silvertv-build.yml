@@ -10,16 +10,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Free disk space and add swap
+      - name: Free disk space
         run: |
           sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost
-          sudo swapoff -a || true
-          sudo fallocate -l 10G /swapfile
-          sudo chmod 600 /swapfile
-          sudo mkswap /swapfile
-          sudo swapon /swapfile
-          free -h
           df -h /
+          free -h
 
       - uses: actions/setup-java@v4
         with:
@@ -32,7 +27,14 @@ jobs:
         run: touch local.properties
 
       - name: Build APK
-        run: ./gradlew :androidApp:assembleFullDebug -Pnuvio.android.distribution=full -Pnuvio.ios.distribution=appstore --no-daemon --max-workers=2 --stacktrace "-Dorg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8" -Pkotlin.daemon.jvmargs=-Xmx2g
+        shell: bash
+        run: |
+          set -o pipefail
+          ./gradlew :androidApp:assembleFullDebug -Pnuvio.android.distribution=full -Pnuvio.ios.distribution=appstore --no-daemon --max-workers=3 --console=plain "-Dorg.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8" -Pkotlin.daemon.jvmargs=-Xmx3g 2>&1 | tee build.log
+
+      - name: Error summary
+        if: failure()
+        run: grep -n -E "^e: |What went wrong|Execution failed|error:|OutOfMemory|Java heap space|Caused by" build.log | head -40 || true
 
       - uses: actions/upload-artifact@v4
         with:
